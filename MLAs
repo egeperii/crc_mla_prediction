@@ -1,0 +1,528 @@
+## Data processing for MLAs
+
+import pandas as pd
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+file_path = "SraRunTable.txt"
+
+metadata = pd.read_csv(file_path, delimiter=",")
+abundance = pd.read_csv('relative_abundance_all.csv')
+
+metadata = metadata[['Run', 'Sample Name', 'Organism', 'Collection_Date', 'sample_title', 'Description', 'env_biome', 'env_feature', 'env_material', 'geo_loc_name', 'HOST', 'Lat_Lon', 'samp_collect_device', 'samp_store_temp', 'lib_const_meth', 'Target_Gene', 'target_subfragment', 'PCR_primers', 'pcr_cond', 'seq_methods', 'seq_qual_check', 'chimera_check', 'fit_result', 'Diagnosis', 'cancer_stage', 'Hx_Prev', 'Hx_of_Polyps', 'Hx_Fam_CRC', 'Age', 'gender', 'Smoke', 'Diabetic', 'Height', 'Weight', 'BMI', 'White', 'Native', 'Black', 'pacific', 'Asian', 'Other', 'Ethnic', 'NSAID', 'Abx', 'Diabetes_Med']]
+
+print(f"the shape of the meta data is: {metadata.shape}")
+print(f"the shape of the abundance data is: {abundance.shape}")
+
+## Remove duplicate values over the patients (Sample Name)
+# Remove duplicates from metadata DataFrame
+metadata = metadata.drop_duplicates(subset='Sample Name')
+
+# Remove corresponding rows from abundance DataFrame
+abundance = abundance[abundance['index'].isin(metadata['Run'])]
+
+# Reset the index of the two datasets
+metadata1 = metadata.reset_index(drop=True)
+abundance = abundance.reset_index(drop=True)
+
+print(f"The shape of the metadata is: {metadata1.shape}")
+print(f"The shape of the abundance data is: {abundance.shape}")
+
+
+## selection of biomarkers of CRC from the columns
+columns_of_interest= ['index','d__Bacteria;p__Bacteroidota;c__Bacteroidia;o__Bacteroidales;f__Porphyromonadaceae',
+    'd__Bacteria;p__Firmicutes;c__Clostridia;o__Peptostreptococcales-Tissierellales;f__Peptostreptococcales-Tissierellales',
+    'd__Bacteria;p__Firmicutes;c__Clostridia;o__Peptostreptococcales-Tissierellales;f__Sedimentibacteraceae',
+    'd__Bacteria;p__Firmicutes;c__Clostridia;o__Peptostreptococcales-Tissierellales;f__Peptostreptococcaceae',
+    'd__Bacteria;p__Firmicutes;c__Clostridia;o__Peptostreptococcales-Tissierellales;f__Anaerovoracaceae',
+    'd__Bacteria;p__Fusobacteriota;c__Fusobacteriia;o__Fusobacteriales;f__Fusobacteriaceae',
+    'd__Bacteria;p__Fusobacteriota;c__Fusobacteriia;o__Fusobacteriales;f__Leptotrichiaceae',
+    'd__Bacteria;p__Firmicutes;c__Clostridia;o__Lachnospirales;f__Defluviitaleaceae',
+    'd__Bacteria;p__Firmicutes;c__Clostridia;o__Lachnospirales;f__Lachnospiraceae',
+    'd__Bacteria;p__Proteobacteria;c__Gammaproteobacteria;o__Enterobacterales;f__Enterobacteriaceae',
+    'd__Bacteria;p__Firmicutes;c__Bacilli;o__Lactobacillales;f__Enterococcaceae',
+    'd__Bacteria;p__Proteobacteria;c__Gammaproteobacteria;o__Enterobacterales;f__Hafniaceae'
+                      
+    ]
+abundance = abundance[columns_of_interest]
+abundance.rename(columns = {'index':'Run'}, inplace = True)
+
+## Merging two data frames
+metadata = pd.merge(metadata1, abundance, on='Run')
+
+metadata.drop('Run', axis=1, inplace=True)
+metadata = metadata.drop('fit_result', axis=1)
+
+# Let's take a look and visualize the percentage of nan values, unique values and the type of our features
+from tabulate import tabulate
+stats = []
+for col in metadata.columns:
+    stats.append((col, metadata[col].nunique(), metadata[col].isnull().sum() * 100 / metadata.shape[0], metadata[col].dtype))
+    stats_metadata = pd.DataFrame(stats, columns=['Feature', 'Unique_values', '% MissingValues', 'type'])
+    metadata_ = stats_metadata.sort_values('% MissingValues', ascending=False)
+print(tabulate(metadata_, headers = 'keys', tablefmt = 'psql'))
+
+metadata.drop(columns = ["Collection_Date" ,"Lat_Lon", "cancer_stage","Organism" , "samp_collect_device", "lib_const_meth", "Target_Gene", "target_subfragment", "PCR_primers", "pcr_cond", "seq_methods", "seq_qual_check", "chimera_check"],axis=1, inplace=True)
+
+
+## Lets take a look on the columns with 1.01% of missing values and decide how to deal with each one
+percent1 = ["Hx_Fam_CRC","Age", "gender", "Smoke", "Diabetic", "Height", "Weight", "Native", "White", "Black", "pacific", "Asian", "Other", "Ethnic", "NSAID", "Abx", "Hx_Prev", "Diabetes_Med",   "env_feature", "geo_loc_name", "HOST"]
+
+
+for i in percent1:
+  print(metadata[i].sample(4))
+  print(f"unique values {metadata[i].unique()}")
+  print('------------------------------------')
+  
+  
+ 
+ ## After visualizing the sample of columns with 1% missing values and their unique values, several observations can be made. The columns in question are 'BMI', 'Native', 'Pacific', 'Other', 'Ethnic', env_feature, 'geo_loc_name', '*host'. Among these columns, 'Native', 'Pacific', 'Other', 'Ethnic', and '*geo_loc_name' contain either a single unique value or a high proportion of missing values. These columns do not provide substantial variation or information Therefore, removing them from the dataset would not result in a significant loss of valuable information.
+
+metadata = metadata.drop(columns = ['BMI', 'Native', 'pacific' ,'Other' ,'Ethnic',  'geo_loc_name' , 'HOST' ,'env_feature'], axis = 1)
+
+
+## KNN Imputation of the missing data
+columns_to_convert = ['Weight', 'Height' ]
+# Convert columns to int type
+metadata['Height'].replace('missing', np.nan, inplace=True)
+metadata['Weight'].replace('missing', np.nan, inplace=True)
+metadata[columns_to_convert] = metadata[columns_to_convert].astype(float)
+
+from pandas.io.formats.style import Subset
+from sklearn.impute import KNNImputer
+numerical_columns = metadata.select_dtypes(include=np.number).columns
+imputed_metadata = metadata.copy()
+imputer = KNNImputer(n_neighbors=5)
+imputed_metadata[numerical_columns] = imputer.fit_transform(imputed_metadata[numerical_columns])
+imputed_metadata.dropna(subset='gender', inplace =True)
+
+imputed_metadata.isna().sum()
+
+from tabulate import tabulate
+stats = []
+for col in imputed_metadata.columns:
+    stats.append((col, imputed_metadata[col].nunique(), imputed_metadata[col].isnull().sum() * 100 / imputed_metadata.shape[0], imputed_metadata[col].dtype))
+    stats_metadata = pd.DataFrame(stats, columns=['Feature', 'Unique_values', '% MissingValues', 'type'])
+    metadata_ = stats_metadata.sort_values('% MissingValues', ascending=False)
+print(tabulate(metadata_, headers = 'keys', tablefmt = 'psql'))
+
+# We can eliminate inconsistent columns and irrelevant columns like "*sample_name" and "sample_title" from the dataset.</br>
+Also it turned out after removing the missing values from our target variable, we have discovered that certain columns now contain only a single constant value. Therefore, it is necessary to eliminate these columns from our dataset.
+Concerned columns: 'samp_store_temp', '*env_material', '*env_biome', 'description'
+
+imputed_metadata = imputed_metadata.drop(columns = ['samp_store_temp', 'env_material', 'env_biome', 'Description', 'Sample Name' ,'sample_title'], axis=1)
+
+imputed_metadata['Diagnosis'].unique()
+imputed_metadata['Diagnosis'] = imputed_metadata['Diagnosis'].map({'Normal': 0, 'Adenoma':1, 'adv Adenoma':2, 'High Risk Normal':3, 'Cancer':4})
+numerical_columns = imputed_metadata.select_dtypes(include=np.number).columns
+
+plt.figure(figsize= (30,20))
+sns.heatmap(imputed_metadata[numerical_columns].corr(),annot=True)
+plt.show()
+
+
+labels = ['Normal', 'Adenoma', 'adv Adenoma', 'High Risk Normal', 'Cancer']
+count = [np.round(imputed_metadata['Diagnosis'].value_counts()[0]/imputed_metadata.shape[0],2), np.round(imputed_metadata['Diagnosis'].value_counts()[1]/imputed_metadata.shape[0],2), np.round(imputed_metadata['Diagnosis'].value_counts()[2]/imputed_metadata.shape[0],2), np.round(imputed_metadata['Diagnosis'].value_counts()[3]/imputed_metadata.shape[0],2), np.round(imputed_metadata['Diagnosis'].value_counts()[4]/imputed_metadata.shape[0],2)]
+plt.style.use('ggplot')
+plt.figure(figsize=(11,6))
+plt.title('disease status distribution')
+plt.pie(x=count, labels=labels, autopct='%.2f%%',
+         startangle=90)
+plt.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle.
+plt.legend(loc='upper left')
+
+# donut
+circle = plt.Circle(xy=(0,0), radius=.75, facecolor='white')
+plt.gca().add_artist(circle)
+plt.show()
+
+## Encoding Categorical variables
+imputed_metadata['gender'] = imputed_metadata['gender'].map({'male': 1, 'female':0})
+
+
+## Modelling
+import plotly.graph_objects as go
+from sklearn.metrics import classification_report
+
+def plot_classification_report(target_test, predictions):
+    # Compute classification report
+    cr = classification_report(target_test, predictions, output_dict=True)
+
+    # Prepare the metric names and values
+    metric_names = ['Accuracy', 'Precision', 'Recall', 'F1-Score']
+    metric_values = [cr['accuracy'], cr['macro avg']['precision'], cr['macro avg']['recall'], cr['macro avg']['f1-score']]
+
+    # Create classification report table figure
+    table_figure = go.Figure(data=[go.Table(
+        header=dict(values=["Metric", "Score"],
+                    line_color='#a6611a',
+                    fill_color='#018571',
+                    font=dict(color='white')),
+        cells=dict(values=[metric_names, metric_values],
+                   line_color='#a6611a',
+                   fill=dict(color=['#80cdc1', '#00FFFF', '#90EE90', '#c27d7f']))
+    )])
+
+    # Set table style
+    table_figure.update_layout(
+        title="Classification Report",
+        font=dict(size=12),
+        width=500,
+        height=300
+    )
+
+    # Show the table figure
+    table_figure.show()
+
+    # Return the metrics as a list
+    return metric_values
+
+
+from sklearn.model_selection import (train_test_split, cross_val_score, cross_validate,GridSearchCV )
+# Train/test split :
+X = imputed_metadata.drop('Diagnosis', axis=1)
+y = imputed_metadata['Diagnosis']
+data_train, data_test, target_train, target_test = train_test_split(
+    X, y, random_state=101
+)
+
+print(
+    f"The training dataset contains {data_train.shape[0]} samples and "
+    f"{data_train.shape[1]} features"
+)
+print(
+    f"The testing dataset contains {data_test.shape[0]} samples and "
+    f"{data_test.shape[1]} features"
+)
+
+
+from sklearn.metrics import (confusion_matrix, accuracy_score,
+                             f1_score, roc_auc_score, precision_score,
+                             recall_score, roc_curve, brier_score_loss,
+                             precision_recall_curve, log_loss)
+from plotly.subplots import make_subplots
+
+
+my_colors_code = ['#018571', '#80cdc1', '#metadatac27d', '#a6611a']
+COLOR_PALETTE = {
+    "primary": "#018571",
+    "secondary": '#80cdc1',
+    "muted": "#a6611a"
+}
+
+
+## Logistic Regression Model
+from sklearn.linear_model import LogisticRegression
+import warnings
+warnings.filterwarnings("ignore")
+model = LogisticRegression(solver='lbfgs')
+model.fit(data_train, target_train)
+
+scores_lr = plot_classification_report(target_test, model.predict(data_test))
+
+import matplotlib.pyplot as plt
+from sklearn.metrics import confusion_matrix
+
+def plot_confusion_matrix(target_test, predictions, labels):
+    # Compute confusion matrix
+    cm = confusion_matrix(target_test, predictions)
+
+    # Normalize the confusion matrix
+    cm_normalized = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+
+    # Plot the confusion matrix
+    plt.figure(figsize=(8, 6))
+    plt.imshow(cm_normalized, interpolation='nearest', cmap=plt.cm.Blues)
+    plt.title('Confusion Matrix')
+    plt.colorbar()
+    tick_marks = np.arange(len(labels))
+    plt.xticks(tick_marks, labels, rotation=45)
+    plt.yticks(tick_marks, labels)
+    plt.xlabel('Predicted Label')
+    plt.ylabel('True Label')
+
+    # Add text inside the plot
+    thresh = cm_normalized.max() / 2.
+    for i in range(cm_normalized.shape[0]):
+        for j in range(cm_normalized.shape[1]):
+            plt.text(j, i, format(cm_normalized[i, j], '.2f'),
+                     ha="center", va="center",
+                     color="white" if cm_normalized[i, j] > thresh else "black")
+
+    # Show the plot
+    plt.tight_layout()
+    plt.show()
+
+# Example usage
+labels = ['Normal', 'Adenoma', 'adv Adenoma', 'High Risk Normal', 'Cancer']
+predictions = model.predict(data_test)
+plot_confusion_matrix(target_test, predictions, labels)
+
+# Prediction on the test set :
+target_predicted = model.predict(data_test)
+
+print(
+    f"The test accuracy using a {model.__class__.__name__} is "
+    f"{model.score(data_test, target_test):.3f}"
+)
+
+
+## Random Forest
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.experimental import enable_halving_search_cv
+from sklearn.model_selection import  HalvingGridSearchCV
+# Grid Search
+param_grid = {'max_depth': [3, 5, 10],
+               'min_samples_split': [2, 5, 10]
+}
+
+
+base_estimator = RandomForestClassifier(random_state=0)
+# HalvingGridSearchCV to use minimum resources :
+sh = HalvingGridSearchCV(base_estimator, param_grid, cv=5,
+                         factor=2, resource='n_estimators',
+                         max_resources=30).fit(data_train, target_train)
+sh.best_estimator_
+
+scores_rf = plot_classification_report(target_test, sh.predict(data_test))
+
+predictions = sh.predict(data_test)
+plot_confusion_matrix(target_test, predictions, labels)
+
+
+## DecisionTreeClassifier
+from sklearn.tree import DecisionTreeClassifier
+import time
+
+start = time.time()
+tree_model = DecisionTreeClassifier()
+tree_model.fit(data_train, target_train)
+elapsed_time_2 = time.time() - start
+
+print(
+    f"The model {tree_model.__class__.__name__} was trained in "
+    f"{elapsed_time_2:.3f} seconds"
+)
+
+scores_dt =plot_classification_report(target_test, tree_model.predict(data_test))
+
+predictions = tree_model.predict(data_test)
+plot_confusion_matrix(target_test, predictions, labels)
+
+
+## Bagging Classifier
+from sklearn.ensemble import BaggingClassifier
+start = time.time()
+bg_model = BaggingClassifier(base_estimator=sh,max_samples=0.5,max_features=1.0,n_estimators=2)
+bg_model.fit(data_train, target_train)
+elapsed_time_2 = time.time() - start
+
+print(
+    f"The model {bg_model.__class__.__name__} was trained in "
+    f"{elapsed_time_2:.3f} seconds"
+)
+
+scores_bg =plot_classification_report(target_test, bg_model.predict(data_test))
+
+predictions = bg_model.predict(data_test)
+plot_confusion_matrix(target_test, predictions, labels)
+
+
+## VotingClassifier
+from sklearn.ensemble import  VotingClassifier
+start = time.time()
+vote_model=VotingClassifier(estimators=[('tree_model',tree_model),('bagging',bg_model), ('rf',sh)],voting='soft')
+vote_model.fit(data_train, target_train)
+elapsed_time_2 = time.time() - start
+
+print(
+    f"The model {vote_model.__class__.__name__} was trained in "
+    f"{elapsed_time_2:.3f} seconds"
+)
+
+scores_vt =plot_classification_report(target_test, vote_model.predict(data_test))
+
+predictions = vote_model.predict(data_test)
+plot_confusion_matrix(target_test, predictions, labels)
+
+
+
+## Results
+
+scores_list = [scores_lr , scores_dt, scores_rf, scores_bg,  scores_vt]
+model_list = [  'LogisticRegression',  'DecisionTreeClassifier',
+                'RandomForestClassifier', 'BaggingClassifier', 'VotingClassifier']
+ 
+
+scores_lr
+
+import pandas as pd
+
+metadata_results = pd.DataFrame(columns=['model', 'accuracy', 'precision', 'recall', 'f1 score'])
+
+metadata_results['model'] = model_list
+for i, model_scores in enumerate(scores_list):
+    if i < len(model_list):
+        metadata_results.loc[i, 'accuracy'] = model_scores[0]
+        metadata_results.loc[i, 'precision'] = model_scores[1]
+        metadata_results.loc[i, 'recall'] = model_scores[2]
+        metadata_results.loc[i, 'f1 score'] = model_scores[3]
+
+metadata_results = metadata_results.rename(columns={'accuracy': 'accuray'})
+
+
+import plotly.figure_factory as ff
+import plotly.offline as py
+
+
+table  = ff.create_table(np.round(metadata_results,4),colorscale=[[0, '#018571'],[.5, '#ffffff'],[1, '#ffffff']],
+                        font_colors=['#ffffff', '#000000', '#000000'])
+
+py.iplot(table)
+
+
+## Feature Importance
+import shap
+column_names = data_train.columns
+X_train_array = data_train.values
+model = RandomForestClassifier(max_depth=5, min_samples_split=5, n_estimators=24,
+                       random_state=0)
+model.fit(X_train_array, target_train)
+
+# Calculate SHAP values for all features
+explainer = shap.TreeExplainer(model)
+shap_values = explainer.shap_values(X_train_array)
+
+# Create a summary plot
+shap.summary_plot(shap_values, X_train_array, feature_names=column_names, plot_type='bar', show=False)
+plt.title('RandomFrestClassifier')
+# Display the plot
+plt.show()
+
+
+mean_abs_shap_values = np.mean(np.abs(shap_values), axis=0)
+
+# Get the indices of the top 20 features based on mean absolute SHAP values
+top_20_indices = np.argsort(mean_abs_shap_values)[-20:][::-1]
+
+# Get the corresponding feature names
+top_20_features = column_names[top_20_indices]
+top_20_features_rf = top_20_features[0]
+
+
+import shap
+column_names = data_train.columns
+X_train_array = data_train.values
+bg_model = BaggingClassifier(base_estimator=sh,max_samples=0.5,max_features=1.0,n_estimators=2)
+bg_model.fit(data_train, target_train)
+
+# Calculate SHAP values for all features
+explainer = shap.TreeExplainer(model)
+shap_values = explainer.shap_values(X_train_array)
+
+# Create a summary plot
+shap.summary_plot(shap_values, X_train_array, feature_names=column_names, plot_type='bar', show=False)
+plt.title('BaggingClassifier')
+# Display the plot
+plt.show()
+
+
+mean_abs_shap_values = np.mean(np.abs(shap_values), axis=0)
+
+# Get the indices of the top 20 features based on mean absolute SHAP values
+top_20_indices = np.argsort(mean_abs_shap_values)[-20:][::-1]
+
+# Get the corresponding feature names
+top_20_features = column_names[top_20_indices]
+top_20_features_bg = top_20_features[0]
+
+
+## Random Forest after applying feature selection
+start = time.time()
+rf_model = RandomForestClassifier(max_depth=5, min_samples_split=5, n_estimators=24, random_state=0)
+rf_model.fit(data_train[top_20_features_rf], target_train)
+elapsed_time_2 = time.time() - start
+
+print(
+    f"The model {rf_model.__class__.__name__} was trained in "
+    f"{elapsed_time_2:.3f} seconds"
+)
+
+scores_rf1 =plot_classification_report(target_test, rf_model.predict(data_test[top_20_features_rf]))
+
+predictions = rf_model.predict(data_test[top_20_features_rf])
+plot_confusion_matrix(target_test, predictions, labels)
+
+
+## XGBoost after aplying feature selection
+from sklearn.ensemble import BaggingClassifier
+start = time.time()
+bg_model = BaggingClassifier(base_estimator=sh,max_samples=0.5,max_features=1.0,n_estimators=2)
+bg_model.fit(data_train[top_20_features_bg], target_train)
+elapsed_time_2 = time.time() - start
+
+print(
+    f"The model {bg_model.__class__.__name__} was trained in "
+    f"{elapsed_time_2:.3f} seconds"
+)
+
+scores_xgb1 =plot_classification_report(target_test,  model.predict(data_test[top_20_features_bg]))
+
+predictions = model.predict(data_test[top_20_features_bg])
+plot_confusion_matrix(target_test, predictions, labels)
+
+
+
+## Comparison of Random Forest and XGB Models Before and After Feature Selection
+
+scores_list = [ scores_rf, scores_rf1 , scores_bg, scores_xgb1]
+model_list = [  'RF before FS', 'RF after FS' , 'bagging before', 'bagging after' ]
+
+
+metadata_results = pd.DataFrame(columns=['model', 'accuracy', 'precision', 'recall', 'f1 score'])
+
+metadata_results['model'] = model_list
+for i, model_scores in enumerate(scores_list):
+    if i < len(model_list):
+        metadata_results.loc[i, 'accuracy'] = model_scores[0]
+        metadata_results.loc[i, 'precision'] = model_scores[1]
+        metadata_results.loc[i, 'recall'] = model_scores[2]
+        metadata_results.loc[i, 'f1 score'] = model_scores[3]
+
+metadata_results = metadata_results.rename(columns={'accuracy': 'accuray'})
+
+metadata_results
+
+
+import plotly.figure_factory as ff
+import plotly.offline as py
+
+
+table  = ff.create_table(np.round(metadata_results,4),colorscale=[[0, '#018571'],[.5, '#ffffff'],[1, '#ffffff']],
+                        font_colors=['#ffffff', '#000000', '#000000'])
+
+py.iplot(table)
+                
+                
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
