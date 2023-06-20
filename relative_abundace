@@ -1,0 +1,59 @@
+ ## Converting taxonomy analysis result into relative abundances
+ 
+ import pandas as pd
+
+df1 = pd.read_csv('/Users/egeperi/Desktop/all_info_meta.csv')
+abundance = pd.read_csv('/Users/egeperi/Desktop/level_5.csv')
+
+# Retrieve the last two columns that were removed
+last_two_columns = abundance[abundance.columns[-2:]]
+
+# Remove the last two columns
+abundance_removed = abundance.drop(abundance.columns[-2:], axis=1)
+
+# Select all columns except the first column
+data_columns = abundance_removed.columns[1:]
+
+# Calculate the sum of abundance values for each row (patient)
+row_sums = abundance[data_columns].sum(axis=1)
+
+# Divide each value in the data columns by the corresponding row sum and multiply by 100 to get relative abundances
+df_relative = abundance[data_columns].div(row_sums, axis=0) * 100
+
+# Add the first column (patient identifier) to the relative abundance DataFrame
+df_relative.insert(0, abundance.columns[0], abundance[abundance.columns[0]])
+
+# Save the relative abundance DataFrame to a new CSV file
+df_concatenated.to_csv('relative_abundance.csv', index=False)
+
+rel_abundance = pd.read_csv('/Users/egeperi/Desktop/relative_abundance.csv')
+df_concatenated = pd.concat([rel_abundance, last_two_columns], axis=1)
+
+# Save the relative abundance DataFrame to a new CSV file
+df_concatenated.to_csv('relative_abundance_all.csv', index=False)
+
+# Separate the merged column names into individual columns
+column_names = df1.columns[0].split(';')
+
+# Create an empty DataFrame with the separated column names
+df2 = pd.DataFrame(columns=column_names)
+
+# Iterate over each row in the original DataFrame and assign the values to the corresponding columns in the new DataFrame
+for _, row in df1.iterrows():
+    values = row[0].split(';')[:len(column_names)]
+    df2.loc[len(df2)] = values
+
+# Print the new DataFrame with separated column names and preserved rows
+print(df2)
+
+column_numbers = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21]
+df2_removed = df2.drop(df2.columns[column_numbers], axis=1)
+
+# Print the DataFrame with the columns removed
+print(df2_removed)
+df2_removed.to_csv('metadata_for_model.csv', index=False)
+
+df3 = pd.read_csv('/Users/egeperi/Desktop/relative_abundance_all.csv')
+df4 = pd.read_csv('/Users/egeperi/Desktop/metadata_for_model.csv')
+print(df3)
+print(df4)
