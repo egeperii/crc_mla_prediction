@@ -1,0 +1,7 @@
+tmux
+/home/gecici/sratoolkit/bin/prefetch --option-file /home/gecici/ege/ege_acclist.txt
+find /home/gecici/ege/runs/ -type f -name '*.sra' -exec mv -t /home/gecici/ege/sra {} + 
+
+for sra_file in /home/gecici/ege/sra/*.sra; do /home/gecici/sratoolkit/bin/fasterq-dump $sra_file --outdir /home/gecici/ege/fastq; done
+
+## QIIME2 and DADA2 pipeline for taxonomy analysis
