@@ -1,0 +1,81 @@
+import pandas as pd 
+
+file_path = "SraRunTable.txt"
+
+metadata = pd.read_csv(file_path, delimiter=",")
+abundance = pd.read_csv('relative_abundance_all.csv')
+abundance = abundance.drop(labels = ['forward-absolute-filepath', 'reverse-absolute-filepath',
+                                     'forward-absolute-filepath.1', 'reverse-absolute-filepath.1'],axis = 1)
+
+print(f"the shape of the meta data is: {metadata.shape}")
+print(f"the shape of the abundance data is: {abundance.shape}")
+
+
+cols = metadata.columns.values[1:]
+
+
+# Remove duplicates from metadata DataFrame
+metadata = metadata.drop_duplicates(subset='Sample Name')
+
+# Remove corresponding rows from abundance DataFrame
+abundance = abundance[abundance['index'].isin(metadata['Run'])]
+
+# Reset the index of the two datasets
+metadata1 = metadata.reset_index(drop=True)
+abundance = abundance.reset_index(drop=True)
+
+print(f"The shape of the metadata is: {metadata1.shape}")
+print(f"The shape of the abundance data is: {abundance.shape}")
+
+
+abundance.rename(columns = {'index':'Run'}, inplace = True)
+metadata = pd.merge(metadata1, abundance, on='Run')
+
+metadata2['Diagnosis'].unique()
+
+cancer = metadata2.loc[metadata2['Diagnosis']=='Adenoma'].drop(labels = cols, axis = 1)
+
+adenoma = metadata2.loc[metadata2['Diagnosis']=='Adenoma']
+adenoma = adenoma.drop(labels = cols, axis = 1)
+
+cancer = metadata2.loc[metadata2['Diagnosis']=='Cancer']
+cancer = cancer.drop(labels = cols, axis = 1)
+
+normal = metadata2.loc[metadata2['Diagnosis']=='Normal']
+normal = normal.drop(labels = cols, axis = 1)
+
+
+import scipy
+import statistics
+bac = []
+pval = []
+for col in normal.columns.values[1:]:
+    array1 = normal[col].values
+    array2 = cancer[col].values
+    array3 = adenoma[col].values
+    if statistics.mean(array1) == 0 and statistics.mean(array2) == 0 and statistics.mean(array3) == 0:
+        continue
+    res = scipy.stats.kruskal(array1,array2,array3)
+    bac.append(col)
+    pval.append(res[1])
+res
+
+
+
+dct = {'bacteria': bac,'pval': pval}
+df1 = pd.DataFrame(dct)
+
+filtered_df = df1[df1['pval'] < 0.05]
+column_values = filtered_df.iloc[:, 0]
+print(column_values)
+
+
+
+row_strings = []
+for index, row in filtered_df.iterrows():
+    row_string = ''.join(map(str, row))
+    row_strings.append(row_string)
+
+# Print the row strings
+for row_string in row_strings:
+    print(row_string)
