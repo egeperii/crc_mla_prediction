@@ -30,23 +30,32 @@ print(f"The shape of the metadata is: {metadata1.shape}")
 print(f"The shape of the abundance data is: {abundance.shape}")
 
 
-## selection of biomarkers of CRC from the columns
-columns_of_interest= ['index','d__Bacteria;p__Bacteroidota;c__Bacteroidia;o__Bacteroidales;f__Porphyromonadaceae',
-    'd__Bacteria;p__Firmicutes;c__Clostridia;o__Peptostreptococcales-Tissierellales;f__Peptostreptococcales-Tissierellales',
-    'd__Bacteria;p__Firmicutes;c__Clostridia;o__Peptostreptococcales-Tissierellales;f__Sedimentibacteraceae',
-    'd__Bacteria;p__Firmicutes;c__Clostridia;o__Peptostreptococcales-Tissierellales;f__Peptostreptococcaceae',
-    'd__Bacteria;p__Firmicutes;c__Clostridia;o__Peptostreptococcales-Tissierellales;f__Anaerovoracaceae',
-    'd__Bacteria;p__Fusobacteriota;c__Fusobacteriia;o__Fusobacteriales;f__Fusobacteriaceae',
-    'd__Bacteria;p__Fusobacteriota;c__Fusobacteriia;o__Fusobacteriales;f__Leptotrichiaceae',
-    'd__Bacteria;p__Firmicutes;c__Clostridia;o__Lachnospirales;f__Defluviitaleaceae',
-    'd__Bacteria;p__Firmicutes;c__Clostridia;o__Lachnospirales;f__Lachnospiraceae',
-    'd__Bacteria;p__Proteobacteria;c__Gammaproteobacteria;o__Enterobacterales;f__Enterobacteriaceae',
-    'd__Bacteria;p__Firmicutes;c__Bacilli;o__Lactobacillales;f__Enterococcaceae',
-    'd__Bacteria;p__Proteobacteria;c__Gammaproteobacteria;o__Enterobacterales;f__Hafniaceae'
-                      
-    ]
+columns_of_interest= ['index', 'd__Bacteria;p__Bacteroidota;c__Bacteroidia;o__Bacteroidales;f__Rikenellaceae',
+                     'd__Archaea;p__Euryarchaeota;c__Methanobacteria;o__Methanobacteriales;f__Methanobacteriaceae',
+                     'd__Bacteria;p__Firmicutes;c__Negativicutes;o__Acidaminococcales;f__Acidaminococcaceae',
+                     'd__Bacteria;p__Actinobacteriota;c__Coriobacteriia;o__Coriobacteriales;f__Coriobacteriaceae',
+                     'd__Bacteria;p__Proteobacteria;c__Gammaproteobacteria;o__Pasteurellales;f__Pasteurellaceae',
+                     'd__Bacteria;p__Bacteroidota;c__Bacteroidia;o__Bacteroidales;f__Marinifilaceae',
+                     'd__Bacteria;p__Desulfobacterota;c__Desulfovibrionia;o__Desulfovibrionales;f__Desulfovibrionaceae',
+                     'd__Bacteria;p__Bacteroidota;c__Bacteroidia;o__Bacteroidales;f__Barnesiellaceae',
+                     'd__Bacteria;p__Actinobacteriota;c__Coriobacteriia;o__Coriobacteriales;f__Eggerthellaceae',
+                     'd__Bacteria;p__Bacteroidota;c__Bacteroidia;o__Bacteroidales;f__Porphyromonadaceae',
+                     'd__Bacteria;p__Fusobacteriota;c__Fusobacteriia;o__Fusobacteriales;f__Fusobacteriaceae',
+                     'd__Bacteria;p__Firmicutes;c__Clostridia;o__Peptococcales;f__Peptococcaceae',
+                     'd__Bacteria;p__Proteobacteria;c__Gammaproteobacteria;o__Burkholderiales;f__Neisseriaceae',
+                     'd__Bacteria;p__Cyanobacteria;c__Vampirivibrionia;o__Gastranaerophilales;f__Gastranaerophilales',
+                     'd__Bacteria;p__Firmicutes;c__Clostridia;o__Peptostreptococcales-Tissierellales;f__Peptostreptococcales-Tissierellales',
+                     'd__Bacteria;p__Firmicutes;c__Bacilli;o__Lactobacillales;f__Leuconostocaceae',
+                     'd__Bacteria;p__Firmicutes;c__Bacilli;o__Staphylococcales;f__Gemellaceae',
+                     'd__Bacteria;p__Firmicutes;c__Clostridia;o__Oscillospirales;f__Oscillospirales',
+                     'd__Bacteria;p__Campilobacterota;c__Campylobacteria;o__Campylobacterales;f__Campylobacteraceae',
+                     'd__Bacteria;p__Verrucomicrobiota;c__Lentisphaeria;o__Victivallales;f__Victivallaceae',
+                     'd__Bacteria;p__Elusimicrobiota;c__Elusimicrobia;o__Elusimicrobiales;f__Elusimicrobiaceae',
+                     'd__Bacteria;p__Fusobacteriota;c__Fusobacteriia;o__Fusobacteriales;f__Leptotrichiaceae',
+                     'd__Bacteria;p__Bacteroidota;c__Bacteroidia;o__Flavobacteriales;f__Weeksellaceae']
 abundance = abundance[columns_of_interest]
 abundance.rename(columns = {'index':'Run'}, inplace = True)
+
 
 ## Merging two data frames
 metadata = pd.merge(metadata1, abundance, on='Run')
@@ -113,29 +122,36 @@ Concerned columns: 'samp_store_temp', '*env_material', '*env_biome', 'descriptio
 
 imputed_metadata = imputed_metadata.drop(columns = ['samp_store_temp', 'env_material', 'env_biome', 'Description', 'Sample Name' ,'sample_title'], axis=1)
 
+metadata2 = imputed_metadata.replace('adv Adenoma', 'Adenoma').replace('High Risk Normal', 'Adenoma')
+metadata2 = metadata2[metadata2['Diagnosis'].astype(str)!='nan']
+metadata2['Diagnosis'].unique()
+
+imputed_metadata['Diagnosis'] = metadata2['Diagnosis']
+
 imputed_metadata['Diagnosis'].unique()
-imputed_metadata['Diagnosis'] = imputed_metadata['Diagnosis'].map({'Normal': 0, 'Adenoma':1, 'adv Adenoma':2, 'High Risk Normal':3, 'Cancer':4})
-numerical_columns = imputed_metadata.select_dtypes(include=np.number).columns
 
 plt.figure(figsize= (30,20))
 sns.heatmap(imputed_metadata[numerical_columns].corr(),annot=True)
 plt.show()
 
 
-labels = ['Normal', 'Adenoma', 'adv Adenoma', 'High Risk Normal', 'Cancer']
-count = [np.round(imputed_metadata['Diagnosis'].value_counts()[0]/imputed_metadata.shape[0],2), np.round(imputed_metadata['Diagnosis'].value_counts()[1]/imputed_metadata.shape[0],2), np.round(imputed_metadata['Diagnosis'].value_counts()[2]/imputed_metadata.shape[0],2), np.round(imputed_metadata['Diagnosis'].value_counts()[3]/imputed_metadata.shape[0],2), np.round(imputed_metadata['Diagnosis'].value_counts()[4]/imputed_metadata.shape[0],2)]
+labels = ['Adenoma', 'Normal', 'Cancer']
+diagnosis_counts = imputed_metadata['Diagnosis'].value_counts()
+count = [np.round(diagnosis_counts[label] / imputed_metadata.shape[0], 2) for label in labels]
+
 plt.style.use('ggplot')
-plt.figure(figsize=(11,6))
-plt.title('disease status distribution')
-plt.pie(x=count, labels=labels, autopct='%.2f%%',
-         startangle=90)
-plt.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle.
+plt.figure(figsize=(11, 6))
+plt.title('Disease Status Distribution')
+plt.pie(x=count, labels=labels, autopct='%.2f%%', startangle=90)
+plt.axis('equal')
 plt.legend(loc='upper left')
 
-# donut
-circle = plt.Circle(xy=(0,0), radius=.75, facecolor='white')
+# Donut
+circle = plt.Circle(xy=(0, 0), radius=0.75, facecolor='white')
 plt.gca().add_artist(circle)
+
 plt.show()
+
 
 ## Encoding Categorical variables
 imputed_metadata['gender'] = imputed_metadata['gender'].map({'male': 1, 'female':0})
@@ -212,17 +228,27 @@ COLOR_PALETTE = {
 }
 
 
-## Logistic Regression Model
-from sklearn.linear_model import LogisticRegression
-import warnings
-warnings.filterwarnings("ignore")
-model = LogisticRegression(solver='lbfgs')
-model.fit(data_train, target_train)
 
-scores_lr = plot_classification_report(target_test, model.predict(data_test))
+##Random Forest
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.experimental import enable_halving_search_cv
+from sklearn.model_selection import HalvingGridSearchCV
+
+# Grid Search
+param_grid = {'max_depth': [3, 5, 10],
+              'min_samples_split': [2, 5, 10]}
+
+base_estimator = RandomForestClassifier(random_state=0, n_estimators=100)  # Corrected argument passing
+sh = HalvingGridSearchCV(base_estimator, param_grid, cv=10, factor=2, min_resources=10, max_resources=60).fit(data_train, target_train)
+
+sh.best_estimator_
+
+
+scores_rf = plot_classification_report(target_test, sh.predict(data_test))
 
 import matplotlib.pyplot as plt
 from sklearn.metrics import confusion_matrix
+from matplotlib.backends.backend_pdf import PdfPages
 
 def plot_confusion_matrix(target_test, predictions, labels):
     # Compute confusion matrix
@@ -250,112 +276,159 @@ def plot_confusion_matrix(target_test, predictions, labels):
                      ha="center", va="center",
                      color="white" if cm_normalized[i, j] > thresh else "black")
 
+    # Save the plot to a PDF file
+    pdf_file = "confusion_matrix.pdf"
+    with PdfPages(pdf_file) as pdf:
+        pdf.savefig()
+
     # Show the plot
     plt.tight_layout()
     plt.show()
 
 # Example usage
-labels = ['Normal', 'Adenoma', 'adv Adenoma', 'High Risk Normal', 'Cancer']
+labels = ['Normal', 'Adenoma', 'Cancer']
 predictions = model.predict(data_test)
 plot_confusion_matrix(target_test, predictions, labels)
 
-# Prediction on the test set :
-target_predicted = model.predict(data_test)
-
-print(
-    f"The test accuracy using a {model.__class__.__name__} is "
-    f"{model.score(data_test, target_test):.3f}"
-)
+print("Confusion matrix saved as:", pdf_file)
 
 
-## Random Forest
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.experimental import enable_halving_search_cv
-from sklearn.model_selection import  HalvingGridSearchCV
-# Grid Search
-param_grid = {'max_depth': [3, 5, 10],
-               'min_samples_split': [2, 5, 10]
-}
 
-
-base_estimator = RandomForestClassifier(random_state=0)
-# HalvingGridSearchCV to use minimum resources :
-sh = HalvingGridSearchCV(base_estimator, param_grid, cv=5,
-                         factor=2, resource='n_estimators',
-                         max_resources=30).fit(data_train, target_train)
-sh.best_estimator_
-
-scores_rf = plot_classification_report(target_test, sh.predict(data_test))
-
-predictions = sh.predict(data_test)
-plot_confusion_matrix(target_test, predictions, labels)
-
-
-## DecisionTreeClassifier
-from sklearn.tree import DecisionTreeClassifier
+##XGBoost
+from xgboost import XGBClassifier
 import time
 
 start = time.time()
-tree_model = DecisionTreeClassifier()
+
+from sklearn.preprocessing import LabelEncoder
+
+# Create an instance of LabelEncoder
+label_encoder = LabelEncoder()
+
+# Fit label encoder on the target variable and transform the labels
+target_train_encoded = label_encoder.fit_transform(target_train)
+
+# Train the XGBClassifier
+XGB_model = XGBClassifier(random_state=101, booster='gbtree', min_child_weight=23, max_depth=6)
+XGB_model.fit(data_train, target_train_encoded)
+elapsed_time_2 = time.time() - start
+
+print(
+    f"The model {XGB_model.__class__.__name__} was trained in "
+    f"{elapsed_time_2:.3f} seconds"
+)
+
+
+from sklearn.preprocessing import LabelEncoder
+
+# Create an instance of LabelEncoder
+label_encoder = LabelEncoder()
+
+# Fit label encoder on the target variable and transform the labels
+target_test_encoded = label_encoder.fit_transform(target_test)
+
+# Generate the classification report and plot
+scores_xgb = plot_classification_report(target_test_encoded, XGB_model.predict(data_test))
+
+
+
+from sklearn.metrics import confusion_matrix
+import matplotlib.pyplot as plt
+import seaborn as sns
+from matplotlib.backends.backend_pdf import PdfPages
+
+# Compute the confusion matrix
+cm = confusion_matrix(target_test, predictions)
+
+# Define the class labels
+labels = ['Adenoma', 'Cancer', 'Normal']
+
+# Plot the confusion matrix
+plt.figure(figsize=(8, 6))
+sns.heatmap(cm, annot=True, cmap="Blues", fmt=".0f", xticklabels=labels, yticklabels=labels)
+plt.title("Confusion Matrix")
+plt.xlabel("Predicted")
+plt.ylabel("True")
+pdf_file2 = "confusion_matrix_2.pdf"
+with PdfPages(pdf_file2) as pdf:
+    pdf.savefig()
+
+# Display the plot
+plt.show()
+
+print("Confusion matrix saved as:", pdf_file)
+
+
+## Descision Tree Model
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.metrics import accuracy_score
+from sklearn.model_selection import cross_val_score
+import time
+
+# Initialize the Decision Tree classifier with specified hyperparameters
+tree_model = DecisionTreeClassifier(max_depth=5, min_samples_split=10, criterion='gini')
+
+# Train the model
+start = time.time()
 tree_model.fit(data_train, target_train)
 elapsed_time_2 = time.time() - start
+
+# Predict on the test set
+predictions = tree_model.predict(data_test)
+
+# Compute and print accuracy
+accuracy = accuracy_score(target_test, predictions)
+print(f"Accuracy: {accuracy:.4f}")
+
+# Perform cross-validation
+cv_scores = cross_val_score(tree_model, data_train, target_train, cv=5)
+print(f"Cross-Validation Scores: {cv_scores}")
+print(f"Mean Cross-Validation Score: {cv_scores.mean():.4f}")
 
 print(
     f"The model {tree_model.__class__.__name__} was trained in "
     f"{elapsed_time_2:.3f} seconds"
 )
 
+
 scores_dt =plot_classification_report(target_test, tree_model.predict(data_test))
 
+
+from sklearn.metrics import confusion_matrix
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# Generate predictions using the trained model
 predictions = tree_model.predict(data_test)
-plot_confusion_matrix(target_test, predictions, labels)
 
+# Compute the confusion matrix
+cm = confusion_matrix(target_test, predictions)
 
-## Bagging Classifier
-from sklearn.ensemble import BaggingClassifier
-start = time.time()
-bg_model = BaggingClassifier(base_estimator=sh,max_samples=0.5,max_features=1.0,n_estimators=2)
-bg_model.fit(data_train, target_train)
-elapsed_time_2 = time.time() - start
+# Define the labels for the confusion matrix
+labels = ['Adenoma', 'Normal', 'Cancer']
 
-print(
-    f"The model {bg_model.__class__.__name__} was trained in "
-    f"{elapsed_time_2:.3f} seconds"
-)
+# Plot the confusion matrix
+plt.figure(figsize=(8, 6))
+sns.heatmap(cm, annot=True, cmap="Blues", fmt=".0f", xticklabels=labels, yticklabels=labels)
+plt.title("Confusion Matrix")
+plt.xlabel("Predicted")
+plt.ylabel("True")
+pdf_file3 = "confusion_matrix_3.pdf"
+with PdfPages(pdf_file3) as pdf:
+    pdf.savefig()
 
-scores_bg =plot_classification_report(target_test, bg_model.predict(data_test))
+# Display the plot
+plt.show()
 
-predictions = bg_model.predict(data_test)
-plot_confusion_matrix(target_test, predictions, labels)
-
-
-## VotingClassifier
-from sklearn.ensemble import  VotingClassifier
-start = time.time()
-vote_model=VotingClassifier(estimators=[('tree_model',tree_model),('bagging',bg_model), ('rf',sh)],voting='soft')
-vote_model.fit(data_train, target_train)
-elapsed_time_2 = time.time() - start
-
-print(
-    f"The model {vote_model.__class__.__name__} was trained in "
-    f"{elapsed_time_2:.3f} seconds"
-)
-
-scores_vt =plot_classification_report(target_test, vote_model.predict(data_test))
-
-predictions = vote_model.predict(data_test)
-plot_confusion_matrix(target_test, predictions, labels)
+print("Confusion matrix saved as:", pdf_file)
 
 
 
 ## Results
 
-scores_list = [scores_lr , scores_dt, scores_rf, scores_bg,  scores_vt]
-model_list = [  'LogisticRegression',  'DecisionTreeClassifier',
-                'RandomForestClassifier', 'BaggingClassifier', 'VotingClassifier']
+scores_list = [scores_rf, scores_xgb, scores_dt]
+model_list = [ 'RandomForestClassifier','XGBoost', 'DecisionTree']
  
-
-scores_lr
 
 import pandas as pd
 
@@ -381,15 +454,6 @@ table  = ff.create_table(np.round(metadata_results,4),colorscale=[[0, '#018571']
 
 py.iplot(table)
 
-
-## Feature Importance
-import shap
-column_names = data_train.columns
-X_train_array = data_train.values
-model = RandomForestClassifier(max_depth=5, min_samples_split=5, n_estimators=24,
-                       random_state=0)
-model.fit(X_train_array, target_train)
-
 # Calculate SHAP values for all features
 explainer = shap.TreeExplainer(model)
 shap_values = explainer.shap_values(X_train_array)
@@ -411,21 +475,29 @@ top_20_features = column_names[top_20_indices]
 top_20_features_rf = top_20_features[0]
 
 
+from sklearn.preprocessing import LabelEncoder
 import shap
-column_names = data_train.columns
-X_train_array = data_train.values
-bg_model = BaggingClassifier(base_estimator=sh,max_samples=0.5,max_features=1.0,n_estimators=2)
-bg_model.fit(data_train, target_train)
+
+# Convert the target variable to numeric labels using LabelEncoder
+label_encoder = LabelEncoder()
+target_train_encoded = label_encoder.fit_transform(target_train)
+
+# Create an XGBoost model
+xgb_model = XGBClassifier(random_state=101, booster='gbtree', min_child_weight=23, max_depth=6)
+
+# Fit the model
+xgb_model.fit(data_train, target_train_encoded)
 
 # Calculate SHAP values for all features
-explainer = shap.TreeExplainer(model)
-shap_values = explainer.shap_values(X_train_array)
+explainer = shap.TreeExplainer(xgb_model)
+shap_values = explainer.shap_values(data_train)
 
 # Create a summary plot
-shap.summary_plot(shap_values, X_train_array, feature_names=column_names, plot_type='bar', show=False)
-plt.title('BaggingClassifier')
+shap.summary_plot(shap_values, data_train, feature_names=column_names, plot_type='bar', show=False)
+plt.title('XGBoost Model')
 # Display the plot
 plt.show()
+
 
 
 mean_abs_shap_values = np.mean(np.abs(shap_values), axis=0)
@@ -437,47 +509,137 @@ top_20_indices = np.argsort(mean_abs_shap_values)[-20:][::-1]
 top_20_features = column_names[top_20_indices]
 top_20_features_bg = top_20_features[0]
 
+mean_abs_shap_values = np.mean(np.abs(shap_values), axis=0)
+
+# Get the indices of the top 20 features based on mean absolute SHAP values
+top_20_indices = np.argsort(mean_abs_shap_values)[-20:][::-1]
+
+# Get the corresponding feature names
+top_20_features = column_names[top_20_indices]
+top_20_features_xgb = top_20_features[0]
+
+# Convert to numpy array before indexing
+top_20_features = np.array(column_names)[top_20_indices]
+top_20_features_xgb = top_20_features[0]
+
 
 ## Random Forest after applying feature selection
-start = time.time()
-rf_model = RandomForestClassifier(max_depth=5, min_samples_split=5, n_estimators=24, random_state=0)
-rf_model.fit(data_train[top_20_features_rf], target_train)
-elapsed_time_2 = time.time() - start
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.experimental import enable_halving_search_cv
+from sklearn.model_selection import HalvingGridSearchCV
 
-print(
-    f"The model {rf_model.__class__.__name__} was trained in "
-    f"{elapsed_time_2:.3f} seconds"
-)
+# Grid Search
+param_grid = {'max_depth': [3, 5, 10],
+              'min_samples_split': [2, 5, 10],
+              'n_estimators': [100,200]}
 
-scores_rf1 =plot_classification_report(target_test, rf_model.predict(data_test[top_20_features_rf]))
+base_estimator = RandomForestClassifier(random_state=0, n_estimators=200)  # Corrected argument passing
+sh = HalvingGridSearchCV(base_estimator, param_grid, cv=10, factor=2, min_resources=10, max_resources=60).fit(data_train[top_20_features_rf], target_train)
 
-predictions = rf_model.predict(data_test[top_20_features_rf])
-plot_confusion_matrix(target_test, predictions, labels)
+best_estimator = sh.best_estimator_
+
+
+scores_rf1 = plot_classification_report(target_test, best_estimator.predict(data_test[top_20_features_rf]))
+
+from sklearn.metrics import confusion_matrix
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+# Make predictions using the Random Forest model
+predictions = best_estimator.predict(data_test[top_20_features_rf])
+
+# Calculate the confusion matrix
+cm = confusion_matrix(target_test, predictions)
+
+# Define the labels for the confusion matrix
+labels = ['Adenoma', 'Cancer', 'Normal']
+
+# Plot the confusion matrix using a heatmap
+plt.figure(figsize=(8, 6))
+sns.heatmap(cm, annot=True, cmap="Blues", fmt=".0f", xticklabels=labels, yticklabels=labels)
+plt.title("Confusion Matrix")
+plt.xlabel("Predicted")
+plt.ylabel("True")
+pdf_file4 = "confusion_matrix_4.pdf"
+with PdfPages(pdf_file4) as pdf:
+    pdf.savefig()
+
+# Display the plot
+plt.show()
+
+print("Confusion matrix saved as:", pdf_file)
+
 
 
 ## XGBoost after aplying feature selection
-from sklearn.ensemble import BaggingClassifier
-start = time.time()
-bg_model = BaggingClassifier(base_estimator=sh,max_samples=0.5,max_features=1.0,n_estimators=2)
-bg_model.fit(data_train[top_20_features_bg], target_train)
-elapsed_time_2 = time.time() - start
+ffrom xgboost import XGBClassifier
+from sklearn.model_selection import GridSearchCV
 
-print(
-    f"The model {bg_model.__class__.__name__} was trained in "
-    f"{elapsed_time_2:.3f} seconds"
-)
+# Define the parameter grid to search over
+param_grid = {
+    'max_depth': [3, 6, 9],
+    'min_child_weight': [1, 5, 10],
+    'n_estimators': [100, 200]  # Add the desired number of boosting rounds
+}
 
-scores_xgb1 =plot_classification_report(target_test,  model.predict(data_test[top_20_features_bg]))
+# Create an instance of the XGBClassifier
+xgb_model = XGBClassifier(random_state=101)
 
-predictions = model.predict(data_test[top_20_features_bg])
-plot_confusion_matrix(target_test, predictions, labels)
+# Create a GridSearchCV object
+grid_search = GridSearchCV(xgb_model, param_grid, cv=10, scoring='accuracy')
+
+# Fit the GridSearchCV object on the training data
+grid_search.fit(data_train[top_20_features_xgb], target_train_encoded)
+
+# Get the best parameter values and the corresponding accuracy score
+best_params = grid_search.best_params_
+best_score = grid_search.best_score_
+
+# Train the XGBoost model with the best parameters
+XGB_model = XGBClassifier(random_state=101, **best_params)
+XGB_model.fit(data_train[top_20_features_xgb], target_train_encoded)
+
+print("Best Parameters:", best_params)
+print("Best Score:", best_score)
+
+
+scores_xgb1 =plot_classification_report(target_test,  model.predict(data_test[top_20_features_xgb]))
+
+
+from sklearn.metrics import confusion_matrix
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+# Make predictions using the Random Forest model
+predictions = best_estimator.predict(data_test[top_20_features_xgb])
+
+# Calculate the confusion matrix
+cm = confusion_matrix(target_test, predictions)
+
+# Define the labels for the confusion matrix
+labels = ['Adenoma', 'Cancer', 'Normal']
+
+# Plot the confusion matrix using a heatmap
+plt.figure(figsize=(8, 6))
+sns.heatmap(cm, annot=True, cmap="Blues", fmt=".0f", xticklabels=labels, yticklabels=labels)
+plt.title("Confusion Matrix")
+plt.xlabel("Predicted")
+plt.ylabel("True")
+pdf_file4 = "confusion_matrix_4.pdf"
+with PdfPages(pdf_file4) as pdf:
+    pdf.savefig()
+
+# Display the plot
+plt.show()
+
+print("Confusion matrix saved as:", pdf_file)
 
 
 
 ## Comparison of Random Forest and XGB Models Before and After Feature Selection
 
-scores_list = [ scores_rf, scores_rf1 , scores_bg, scores_xgb1]
-model_list = [  'RF before FS', 'RF after FS' , 'bagging before', 'bagging after' ]
+scores_list = [ scores_rf, scores_rf1 , scores_xgb, scores_xgb1]
+model_list = [  'RF before FS', 'RF after FS' , 'XGB before', 'XGB after' ]
 
 
 metadata_results = pd.DataFrame(columns=['model', 'accuracy', 'precision', 'recall', 'f1 score'])
@@ -491,6 +653,7 @@ for i, model_scores in enumerate(scores_list):
         metadata_results.loc[i, 'f1 score'] = model_scores[3]
 
 metadata_results = metadata_results.rename(columns={'accuracy': 'accuray'})
+
 
 metadata_results
 
